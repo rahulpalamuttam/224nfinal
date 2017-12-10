@@ -1,0 +1,88 @@
+import sys
+sys.path.insert(0, '../../')
+import snap
+import numpy as np
+from collections import defaultdict
+from sklearn.manifold import TSNE
+import matplotlib as mpl
+mpl.use('TkAgg')
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
+import seaborn as sns
+import cPickle
+import random
+from random import shuffle
+
+# Appends the circle ids to the end of each nodes's feature vector
+def parse_circles(fn, nodes):
+  node_to_circle = defaultdict(int)
+  with open(fn) as f:
+    for line in f:
+      split = line.strip().split()
+      for node in split[1:]:
+        nid = int(node)
+        # Ignore nodes that are listed in circles file but not in the edges file
+        if nid not in nodes: continue
+        if nid not in node_to_circle:
+          node_to_circle[nid] = [int(split[0][6:])]
+        else:
+          node_to_circle[nid].append(int(split[0][6:]))
+
+  # Add a label for no circle
+  for i in nodes:
+    if int(i) not in node_to_circle: node_to_circle[int(i)] = [9]
+
+  return node_to_circle
+
+
+graph = snap.LoadEdgeList(snap.PUNGraph, '../graph/107.edges', 0, 1)
+nodes = [j.GetId() for j in graph.Nodes()]
+reorder = [j.GetId() for j in graph.Nodes()]
+dict_nodes = {}
+
+for node in graph.Nodes():
+    j = node.GetId()
+    if node.GetId() not in dict_nodes:
+        dict_nodes[j] = []
+    for Id in node.GetOutEdges():
+        dict_nodes[j].append(Id)
+circles_fn = '../graph/107.circles'
+
+# embeddings has the node_id as first column, circle_id in the last column, and the feature
+# vector inbetween
+mapping = parse_circles(circles_fn, nodes)
+classes = []
+random.shuffle(reorder)
+reorder = np.array(reorder)
+
+for k in mapping:
+    one_hot = np.zeros(10)
+    one_hot[mapping[k]] = 1
+    classes.append(one_hot)
+
+with open('ind.facebook.graph','wb') as fp:
+    cPickle.dump(dict_nodes, fp)
+
+with open('ind.facebook.allx', 'wb') as fp:
+    cPickle.dump(nodes, fp)
+
+with open('ind.facebook.x', 'wb') as fp:
+    cPickle.dump(nodes[0:100000],fp)
+
+with open('ind.facebook.tx', 'wb') as fp:
+    cPickle.dump(nodes[100000:],fp)
+
+with open('ind.facebook.ally', 'wb') as fp:
+    cPickle.dump(classes,fp)
+
+with open('ind.facebook.y', 'wb') as fp:
+    cPickle.dump(classes[0:100000],fp)
+
+with open('ind.facebook.ty', 'wb') as fp:
+    cPickle.dump(classes[100000:],fp)
+
+with open('ind.facebook.test.index', 'wb') as fp:
+    cPickle.dump(reorder,fp)
+
+
+print mapping
